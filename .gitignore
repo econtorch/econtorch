@@ -1,1 +1,15 @@
+# Compiled Python
 *.pyc
+*.pyd
+*__pychache__
+
+# Editor files
+
+*.swn
+*.swo
+*.swp
+*.swm
+*~
+
+# macOS dir files
+.DS_Store
