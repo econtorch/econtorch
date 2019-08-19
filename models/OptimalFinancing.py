@@ -7,6 +7,7 @@ by Streabulaev and Whited (2012)
 import torch
 import numpy as np
 from econtorch.base import _Agent
+from econtorch.discrete_ramdom_processes import AR1Log
 
 
 
@@ -34,8 +35,7 @@ class Agent(_Agent):
         k_min = 0
         k_max = 100
         nz = 10         # Grid size for the productivity shock
-        z_min = 0
-        z_max = 10
+        z_m = 3
         # Model parameters
         self.theta = 0.7
         self.delta = 0.15
@@ -45,22 +45,34 @@ class Agent(_Agent):
         self.sigma = 0.15
         # State space
         k = np.linspace(k_min, k_max, nk)
-        z = np.linspace(z_min, z_max, nz)
-        km, zm = np.meshgrid(k, z, indexing='ij')
+        z_process = AR1Log(self.rho, self.sigma, nz, z_m)
+        z = z_process.states
+        # Action space
+        I = np.linspace(-50, 50, 80)
+        # Creation of the state and action spaces
+        km, zm, Im = np.meshgrid(k, z, I, indexing='ij')
         self.states = torch.tensor([km, zm])
+        self.actions = torch.tensor([Im])
 
+    #def states(self):
+    #    # Return the states space: shape [S]
+    #    pass
 
-    def reward(self, states, actions):
+    #def actions(self):
+    #    # Return the actions space: shape [SxA]
+    #    pass
+
+    def reward(self):
         # Cash flow
-        return _cashFlow(states[0], actions[0], states[1])
+        return self._cashFlow(self.states[0], self.actions[0], self.states[1])
         
-    def value(self, states, actions):
+    def value(self):
         pass
 
-    def policy(self, states):
+    def policy(self):
         pass
 
-    def action_value(state, action):
+    def action_value(self):
         pass
 
 
@@ -75,6 +87,6 @@ class Agent(_Agent):
     
     # Cash Flow function
     def _cashFlow(self, k, I, z):
-        return _prof(k,z)-I-_adjCosts(I,k)
+        return self._prof(k,z)-I-self._adjCosts(I,k)
 
 

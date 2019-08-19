@@ -12,7 +12,24 @@ class _Agent(ABC):
     - q_pi(s,a) the value of taking action a in state s given pi
     """ 
     
-    def __init__(self):
+    def __init__(self, states):
+        pass
+
+    @abstractmethod
+    def states(self):
+        r"""
+        Return the states space:
+            - Shape [S]
+        """
+        pass
+
+    @abstractmethod
+    def actions(self):
+        r"""
+        Return the actions space for all states:
+            - Shape [SxA]
+
+        """
         pass
 
     @abstractmethod
