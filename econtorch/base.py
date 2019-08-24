@@ -15,22 +15,6 @@ class _Agent(ABC):
     def __init__(self, states):
         pass
 
-    @abstractmethod
-    def states(self):
-        r"""
-        Return the states space:
-            - Shape [S]
-        """
-        pass
-
-    @abstractmethod
-    def actions(self):
-        r"""
-        Return the actions space for all states:
-            - Shape [SxA]
-
-        """
-        pass
 
     @abstractmethod
     def policy(state):

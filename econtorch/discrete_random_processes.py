@@ -2,8 +2,9 @@ r"""
 Provide Discretization methods for random processes
 """
 
+import torch
+from torch.distributions.normal import Normal
 import numpy as np
-from scipy.stats import norm
 
 class AR1Log:
     r"""
@@ -21,18 +22,23 @@ class AR1Log:
     """
 
     def __init__(self, p, sigma, N, m=3):
+        norm = Normal(0,1)
         minLnZ = -m*sigma/(np.sqrt(1-p**2))
         maxLnZ = m*sigma/(np.sqrt(1-p**2))
         # Array of possible shocks
-        lnZ=np.linspace(minLnZ,maxLnZ,N)
-        Z=np.exp(lnZ)
+        lnZ=torch.linspace(minLnZ,maxLnZ,N)
+        Z=torch.exp(lnZ)
         self.states = Z
         # Creation of the transition matrix (Tauchen 1986 method)
         w=lnZ[1]-lnZ[0]
         zTrans=norm.cdf((lnZ[None,:]-p*lnZ[:,None]+w/2)/sigma) - norm.cdf((lnZ[None,:]-p*lnZ[:,None]-w/2)/sigma)
         # Compute zTrans[nzj,0] and last zTrans[nzj,Nk-1]
         zTrans[:,0]=norm.cdf((lnZ[0]-p*lnZ+w/2)/sigma)
-        lastIndex=lnZ.size-1
+        lastIndex=lnZ.shape[0]-1
         zTrans[:,lastIndex]=1-norm.cdf((lnZ[lastIndex]-p*lnZ-w/2)/sigma)
         self.transitions = zTrans
+        # Compute the next state
+        self.next_states = Z
 
+    def next_states(states, dim):
+        pass
