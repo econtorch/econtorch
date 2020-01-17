@@ -18,6 +18,10 @@ import os
 import sys
 sys.path.insert(0, os.path.abspath('../'))
 
+# -- For ReadTheDocs --------------------------------------------------------
+master_doc = 'index'
+
+
 # -- Project information -----------------------------------------------------
 
 project = 'Econtorch'
