@@ -1,7 +1,7 @@
 Welcome to Econtorch's documentation!
 =====================================
 
-.. autodoc:: econtoch.agents.discrete_agent
+.. autodoc:: econtorch.agents.discrete_agent
    :members:
 
 .. toctree::
