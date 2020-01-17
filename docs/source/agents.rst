@@ -1,4 +1,4 @@
-econtorch.agents
+agents
 ================
 
 .. automodule:: econtorch.agents

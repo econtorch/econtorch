@@ -1,5 +1,5 @@
-econtorch.agents
-================
+processes
+=========
 
 .. automodule:: econtorch.processes
 .. currentmodule:: econtorch.processes
