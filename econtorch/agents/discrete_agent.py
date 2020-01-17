@@ -1,38 +1,216 @@
 r"""
-Discrete Agent
-Discrete State Space and Discrete Action Space
+Define discrete States/Actions and a discrete agent.
 """
 
 import torch
 from torch.distributions.categorical import Categorical
-from econtorch.base import *
-from econtorch.discrete_random_processes import *
 import numpy as np
+#import econtorch.discrete_random_processes.RandomProcess as RandomProcess
+
+# Define the dtypes for the tensors
+#dtype_indices = 
 
 
-class DiscreteAgent(Agent):
+class DiscreteState():
+
+    def __init__(self, states):
+        self.values = torch.Tensor(states)
+        self.size = self.values.size() 
+        self.length = len(self.values)
+        self.indices = torch.arange(0, self.length)
+        self.agent = None
+
+    def clone(self):
+        values = self.values.clone()
+        clone = DiscreteState(values)
+        return clone
+
+    def _get_next_states_deterministic(self):
+        r"""
+        Return the next state when an action is linked to the state
+        """
+        self.ns = self.meshgrid
+        self.ns_transition = torch.ones(self.ns.shape) # Deterministic
+        self.ns_indices = self.ns.clone() 
+        self.ns_indices[:] = torch.arange(0,len(self.values)).type(torch.int32)
+
+
+class DiscreteAction():
+
+    def __init__(self, actions):
+        if isinstance(actions, DiscreteState):
+            self.values = actions.values
+            self.state = actions
+            actions.action = self
+            # Assign the generic get_next_states function to the state
+            actions.get_next_states = actions._get_next_states_deterministic
+        else:
+            self.values = torch.Tensor(actions)
+        self.size = self.values.size() 
+        self.length = len(self.values)
+        self.indices = torch.arange(0, self.length)
+
+
+class DiscreteAgent():
+    r"""
+    Class reprensenting an Agent.
+
+    Attributes:
+        states          List of state objects.
+        states_values   List of 1D torch.Tensor with the states values
+        states_shape    Shape of the state space (torch.Size)
+        actions         List of action objects.
+        actions_shape   Shape of the state space (torch.Size)
+    """
     
-    def __init__(self, **kwargs):
-
-        super(DiscreteAgent, self).__init__(**kwargs)
-
-        # Value (V), Action-Value (Q) and Policy (pi) functions (array here)
+    def __init__(self, states=[], actions=[],
+            discount_rate=None):
+        # Create the states and actions space
+        self.states = []
+        self.states_values = []
+        self.states_shape = torch.Size() 
+        self.actions = []
+        self.actions_values = []
+        self.actions_shape = torch.Size() 
+        self.add_states(states)
+        self.add_actions(actions)
+        # Discount Rate 
+        self.set_discount_rate(discount_rate)
+        # Create the shapes and meshgrids
+        self.update_states_actions_shape()
+        self.update_meshgrids()
+        # Value (V), Action-Value (Q) and Policy (pi) functions (arrays here)
         self.V = torch.zeros(self.states_shape)
         self.Q = torch.zeros(self.states_actions_shape)
         self.pi = torch.zeros(self.states_shape)
+        self.pi_indices = torch.zeros(self.states_shape)
 
-        # Update the next states and rewards
-        self.update_reward()
-        self.update_next_states()
+########## Functions to manipulate the object ##########
+
+    def add_state(self, s):
+        if not(isinstance(s, DiscreteState)):
+            s = DiscreteState(s)
+        if s.agent is not None: # Clone the state if already assigned
+            s = s.clone()
+        s.dim = len(self.states)
+        s.agent = self
+        self.states += [s]
+        self.states_values += [s.values]
+        self.states_shape += s.size
+        #self.update_states_actions_shape()
+        #self.update_meshgrids()
+
+    def add_states(self, s_array):
+        for s in s_array:
+            self.add_state(s)
+
+    def add_action(self, a):
+        if not(isinstance(a, DiscreteAction)):
+            a = action(a)
+        a.dim = len(self.actions)
+        self.actions += [a]
+        self.actions_values += [a.values]
+        self.actions_shape += a.size
+        self.update_states_actions_shape()
+        self.update_meshgrids()
+
+    def add_actions(self, values_array):
+        for v in values_array:
+            self.add_action(v)
+
+    def update_states_actions_shape(self):
+        self.states_actions_shape = self.states_shape + self.actions_shape
+
+    def update_meshgrids(self):
+        meshgrids = torch.meshgrid(self.states_values + self.actions_values)
+        self.states_meshgrids = []
+        self.actions_meshgrids = []
+        for s in self.states:
+            s.meshgrid = meshgrids[s.dim]
+            self.states_meshgrids += [s.meshgrid]
+        for a in self.actions:
+            a.meshgrid = meshgrids[len(self.states)+a.dim]
+            self.actions_meshgrids += [a.meshgrid]
+
+    def set_discount_rate(self, discount_rate):
+        self.discount_rate = discount_rate
+
+########## Integration functions ##########
+    def integrate_current(self, tensor, state):
+        r"""
+        Integrates tensor along a given state
+        Returns a vector of the same shape as tensor.
+        Note: integrates over current state, not the next state.
+        """
+        # Reshape the distribution
+        ## Put the state dimension at the end
+        last_dim = len(self.states_actions_shape)-1
+        perm = np.arange(0,last_dim+1,1)
+        perm[last_dim] = state.dim
+        perm[state.dim] = last_dim
+        tensor = tensor.permute(list(perm))
+        proba = state.transitions.expand(tensor.shape)
+        tensor = tensor.permute(list(perm))
+        proba = proba.permute(list(perm))
+        tensor_p = tensor*proba
+        tensor_int = tensor_p.sum(state.dim)
+        tensor_final = tensor_int.unsqueeze(state.dim).expand(tensor.shape)
+        return tensor_final
+
+    def integrate_next(self, tensor, states):
+        r"""
+        Integrates the tensor along the given states
+        Returns a vector of reduced shape (the state dimension is removed)
+        Note: Integrates over the next states, not the current states.
+        """
+        # Get the joint proba distribution
+        joint_transition = torch.ones(tensor.shape)
+        for s in states:
+            joint_transition = joint_transition * s.ns_transition
+        tensor_p = tensor*joint_transition
+        dims = [len(self.states_actions_shape)+s.dim for s in states]
+        tensor_final = tensor_p.sum(dims)
+        return(tensor_final)
 
 
+########## Convenient Functions to get Values and Policies ##########
+
+    def get_pi(self, indices):
+        r"""
+        Get the optimal policy for given states.
+
+        Args:
+            indices: list of the indices of the states, ordered
+
+        warning::
+            The shapes of the indices should be similar
+
+        """
+        # Checks
+        if len(indices) != len(self.states):
+            raise Exception("Incorrect number of indices")
+        sh = indices[0].shape
+        for ind in indices:
+            if sh != ind.shape:
+                raise Exception("One or more indices are of different shapes")
+        # Compute the flatten indices
+        n_idx = int(np.prod(sh))
+        flatten_indices = 0
+        mul = 1
+        for i in range(len(indices)-1,-1,-1):
+            ind = indices[i].reshape(n_idx)
+            flatten_indices = flatten_indices + (ind * mul)
+            mul = mul * np.prod(self.states[i].size)
+        # Get the optimal policy
+        policy = self.pi.reshape(np.prod(self.pi.shape))[flatten_indices].reshape(sh)
+        return policy
 
 ########## Continuation Value ##########
 
     def update_reward(self):
-        self.rew = self.reward(self.states_meshgrids, self.actions_meshgrids)
+        #self.rew = self.reward(self.states_meshgrids, self.actions_meshgrids)
+        self.rew = self.reward()
         self.rew[torch.isnan(self.rew)] = -np.inf
-
 
     def update_next_states(self):
         r"""
@@ -52,19 +230,25 @@ class DiscreteAgent(Agent):
         # Compute the next state and the final shape
         stoch_sh = []
         for s in self.states:
-            if hasattr(s, 'action') or isinstance(s, RandomProcess):
-                s.get_next_states()
-            else:
-                # Find the corresponding indices and transition if not given
-                s.get_next_states()
-                # Find the indices (closest on the grid)
-                ns = s.ns.view(1,-1)
-                grid = s.values.view(-1,1)
-                diff = torch.abs(ns - grid)
-                s.ns_indices = torch.argmin(diff, 0)
-                s.ns_indices = s.ns_indices.reshape(s.ns.shape)
-                # Compute the transition matrix if needed - TODO
-                s.ns_transition = torch.ones(s.ns.shape)
+            s.get_next_states()
+            #TODO: Rewrite this part to allow for incomplete objects
+            #if (hasattr(s, 'action') 
+            #        or isinstance(s, RandomProcess) 
+            #        or isinstance(s, Belief)):
+            #    s.get_next_states()
+            #else:
+            #    # TODO: Rewrite 
+            #    # Find the corresponding indices and transition if not given
+            #    # Works only for non-stochastic transitions
+            #    s.get_next_states()
+            #    # Find the indices (closest on the grid)
+            #    ns = s.ns.view(1,-1)
+            #    grid = s.values.view(-1,1)
+            #    diff = torch.abs(ns - grid)
+            #    s.ns_indices = torch.argmin(diff, 0)
+            #    s.ns_indices = s.ns_indices.reshape(s.ns.shape, dtype=torch.float32)
+            #    # Compute the transition matrix if needed - TODO
+            #    s.ns_transition = torch.ones(s.ns.shape)
 
             # Compute the final shape
             if s.ns.shape == self.states_actions_shape:
@@ -111,7 +295,6 @@ class DiscreteAgent(Agent):
             s.ns_indices = s.ns_indices.reshape(self.ns_shape)
         self.oneD_indices = self.oneD_indices.long()
 
-
         # Compute the constraints (values that are inside the grid)
         self.ingrid = torch.ones(self.ns_shape)
         for s in self.states:
@@ -122,7 +305,6 @@ class DiscreteAgent(Agent):
             self.ingrid = self.ingrid * ingrid_tmp
         self.ingrid[self.ingrid==0] = -np.inf
 
-
     def update_next_states_values(self):
         self.V_flat = self.V.view(int(np.prod(self.states_shape)))
         values_flat = self.V_flat[self.oneD_indices]
@@ -132,15 +314,14 @@ class DiscreteAgent(Agent):
         # Reshape V 
         #self.V = self.V.reshape(self.states_shape)
 
-
     def update_continuation_value(self):
         r"""
         Provide the expected continuation values for given states and actions.
         """
-        # Multiply the transitions matrices to obtain the joint distribution
-        p_trans = torch.ones(self.ns_shape)
-        for s in self.states:
-            p_trans = p_trans * s.ns_transition
+        # # Multiply the transitions matrices to obtain the joint distribution
+        # p_trans = torch.ones(self.ns_shape)
+        # for s in self.states:
+        #     p_trans = p_trans * s.ns_transition
 
         # Compute the expectation using the transition matrix
         values_p = self.next_states_values * self.joint_transition
@@ -149,7 +330,6 @@ class DiscreteAgent(Agent):
         sas_len = len(self.ns_shape)
         self.continuation_value = values_p.sum(list(range(sa_len, sas_len)))
 
-
 ########## Optimal Policy ##########
 
     def policy_improvement(self):
@@ -157,7 +337,6 @@ class DiscreteAgent(Agent):
         self.update_continuation_value()
         action_value = self.rew + self.discount_rate * self.continuation_value
         # Change NaNs to -Inf for the maximization
-        #import ipdb; ipdb.set_trace();
         #action_value[torch.isnan(action_value)] = -np.inf
         action_value[action_value!=action_value] = -float('inf')
 
@@ -191,22 +370,25 @@ class DiscreteAgent(Agent):
         Ns = len(self.states)
 
         V_old = self.V
-        V_diff = V_old - self.V + 1
+        V_diff = V_old - self.V + criterion
         V_diff[torch.isnan(V_diff)] = 0.
         while (torch.norm(V_diff) > criterion):
             self.update_next_states_values()
             self.update_continuation_value()
             action_value = self.rew + self.discount_rate * self.continuation_value
             # Find the value function given the current policy
-            self.V = torch.gather(action_value,
-                    index=self.pi_indices.unsqueeze(dim=len(self.states)),
-                    dim=Ns).squeeze(dim=Ns)
+            if len(self.actions) > 0:
+                # If the agent actual has a policy
+                self.V = torch.gather(action_value,
+                        index=self.pi_indices.unsqueeze(dim=len(self.states)),
+                        dim=Ns).squeeze(dim=Ns)
+            else:
+                # Otherwise, just get the value given the next state
+                self.V = action_value
             V_diff = V_old - self.V
             V_old = self.V
             V_diff[torch.isnan(V_diff)] = 0.
             print(torch.norm(V_diff))
-
-
     
 ########## Value Function Iteration ##########
 
@@ -215,7 +397,7 @@ class DiscreteAgent(Agent):
         self.update_reward()
         self.update_next_states()
         V_old = self.V
-        V_diff = V_old - self.V + 1
+        V_diff = V_old - self.V + criterion
         V_diff[torch.isnan(V_diff)] = 0.
         while (torch.norm(V_diff) > criterion):
             # Update optimal policy
@@ -287,5 +469,4 @@ class DiscreteAgent(Agent):
             pi_ind += [self.pi_indices[tuple(s_ind)]]
 
         return (sim_states, sim_pi)
-
 

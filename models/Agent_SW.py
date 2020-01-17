@@ -14,7 +14,7 @@ import seaborn as sns
 import pandas as pd
 
 
-class Agent_SW(DiscreteAgent):
+class Firm(DiscreteAgent):
     r"""
     The state vector is:
         [k, z]
