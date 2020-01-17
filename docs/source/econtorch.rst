@@ -1,10 +1,15 @@
 econtorch package
 =================
 
-Module contents
----------------
 
-.. automodule:: econtorch.agents.discrete_agent
+.. automodule:: econtorch
    :members:
    :undoc-members:
    :show-inheritance:
+
+.. toctree::
+   :caption: Modules
+
+   agents
+   processes
+
