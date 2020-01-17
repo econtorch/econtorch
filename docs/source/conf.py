@@ -21,6 +21,9 @@ sys.path.insert(0, os.path.abspath('../..'))
 # -- For ReadTheDocs --------------------------------------------------------
 master_doc = 'index'
 
+# -- Mock Imports -----------------------------------------------------------
+autodoc_mock_imports = ["torch"]
+
 
 # -- Project information -----------------------------------------------------
 
