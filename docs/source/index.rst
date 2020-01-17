@@ -5,6 +5,10 @@ Welcome to Econtorch's documentation!
    :maxdepth: 2
    :caption: Contents:
 
+   Home
+   Econtorch
+   Models
+
 
 
 Indices and tables
