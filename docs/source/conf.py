@@ -22,7 +22,7 @@ sys.path.insert(0, os.path.abspath('../..'))
 master_doc = 'index'
 
 # -- Mock Imports -----------------------------------------------------------
-autodoc_mock_imports = ["torch"]
+autodoc_mock_imports = ["torch", "numpy"]
 
 
 # -- Project information -----------------------------------------------------
