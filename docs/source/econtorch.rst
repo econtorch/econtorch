@@ -1,11 +1,8 @@
-econtorch package
-=================
+ECONTORCH
+=========
 
 
 .. automodule:: econtorch
-   :members:
-   :undoc-members:
-   :show-inheritance:
 
 .. toctree::
    :caption: Modules
