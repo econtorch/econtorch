@@ -144,7 +144,9 @@ class Belief(DiscreteState):
     A belief state is a set of priors regarding another state.
     Note that we cannot just model the belief as only one distribution
     of the state the belief is about because there would therefore only be
-    one possible belief. We need to define
+    one possible belief. We need to define a set of distributions and each
+    distribution corresponds to a given belief. The agent is therefore
+    in a given state (that is holds a given belief).
     """
 
     def __init__(self, state, N):

@@ -4,10 +4,13 @@ from torch import nn
 from torch import optim
 from torch.autograd import Variable
 from torch.distributions.categorical import Categorical
+from torch.distributions.bernoulli import Bernoulli
+from torch.distributions.binomial import Binomial
 
 import numpy as np
 
 from econtorch.agents.discrete_agent import *
+from econtorch.agents.discrete_dqn_agent import *
 from econtorch.processes.discrete_random_processes import Uniform
 from econtorch.processes.discrete_random_processes import MarkovBinomial
 
@@ -23,30 +26,34 @@ import seaborn as sns
 def demo_params():
     # Global parameters
     params = {}
-    params['d'] = .15           # Depreciation rate
-    params['theta'] = 0.7       # Productivity of capital
-    params['r'] = 0.04          # Interest rate (discount rate inferred)
+    params['d'] = .15       # Depreciation rate
+    params['theta'] = 0.7   # Productivity of capital
+    params['r'] = 0.04      # Interest rate (discount rate inferred)
 
     # Capital Grid - k
-    params['k_min'] = 10
-    params['k_max'] = 50
-    params['nk'] = 25           # Number of capital states
+    params['k_min'] = 10 
+    params['k_max'] = 250
+    params['nk'] = 150       # Number of capital states
     # State of the World - w    (Productivity, Binomial process)
-    params['q'] = .9            # Probability of staying in the same state
-    params['w0'] = 1            # Low productivity state
-    params['w1'] = 5            # High productivity state
+    params['q'] = .95        # Probability of staying in the same state
+    params['w0'] = 1        # Low productivity state
+    params['w1'] = 6        # High productivity state
+    #params['w0'] = 3        # Low productivity state
+    #params['w1'] = 3        # High productivity state
     # Productivity shock - eps
     ## Uniformly distributed between min_eps and max_eps
-    params['min_eps'] = -10
-    params['max_eps'] = 10
-    params['N_eps'] = 5         # Number of states used in the discretization
+    #params['min_eps'] = -10
+    #params['max_eps'] = 10
+    params['min_eps'] = 0
+    params['max_eps'] = 0
+    params['N_eps'] = 5     # Number of states used in the discretization
 
     # Fraction kept by the manager every period - x     (Uniform distribution)
     params['min_x'] = .5
     params['max_x'] = .7
-    params['N_x'] = 3           # Number of states used in the discretization
+    params['N_x'] = 3       # Number of states used in the discretization
     # Investors' Beliefs - rho
-    params['ngw'] = 10          # Number beliefs to describe the distribution
+    params['ngw'] = 10      # Number of beliefs to describe the distribution
 
     # Return the parameters
     return params
@@ -54,15 +61,14 @@ def demo_params():
 
 def demo_single_manager():
     params = demo_params()
-    params['nk'] = 100
     # Create the agent
     man = Single_Manager(params)
     # Solve the value function
     man.iterate_value_function(1)
     # Plot the results
     ## Simulate a path starting at init_state
-    init_state = [1,20,4]
-    N = 100
+    init_state = [1,50,4]
+    N = 200
     
     sim = man.simulate(N, init_state)
     
@@ -70,8 +76,46 @@ def demo_single_manager():
     
     man.plot_simulation(sim)
 
+def demo_single_DQN_manager():
 
-def demo_single_manager():
+    init_state = [1,20,4]
+    N = 500
+
+
+    params = demo_params()
+    # Create the agent
+    man = Single_DQN_Manager(params)
+
+    # Training and simulation
+
+    #man.train_Q_grid_sarsa()
+    #man.train_Q_grid_qlearning()
+    man.train_agent()
+    man.update_reward()
+    man.update_next_states()
+    Q_pi, Q_pi_indices = man.get_Q_policy()
+    #Q_pi, Q_pi_indices = man.get_Q_policy_nn()
+    sim_Q = man.simulate(N, init_state, Q_pi_indices)
+    man.plot_simulation(sim_Q)
+
+
+    # Solve the value function
+    # Plot the results
+    ## Simulate a path starting at init_state
+
+    # Training and simulation with DP
+    man.iterate_value_function(1)
+    sim = man.simulate(N, init_state, man.pi_indices)
+    man.plot_simulation(sim)
+    
+
+
+    
+    #import ipdb; ipdb.set_trace();
+    
+
+
+def demo_manager():
     params = demo_params()
     params['nk'] = 100
     # Create the agent
@@ -88,6 +132,138 @@ def demo_single_manager():
     #import ipdb; ipdb.set_trace();
     
     man.plot_simulation(sim)
+
+
+class Single_DQN_Manager(DiscreteDQNAgent):
+    r""" Implements the Manager for the posterior beliefs problem.
+
+    The states are:
+        - K: Capital
+        - w: State of the world (binary: high or low)
+        - eps: Productivity shock
+        - rho: Market belief of a high state of the world next period
+    The actions are:
+        - I: Investment
+    Parameters include:
+        - x: Fraction of the firm kept by the manager every period
+             (1-x) is sold at an endogeneous price
+        - d: Capital depreciation rate
+        - beta: discount rate
+
+    """
+
+    def __init__(self, params):
+        
+        # Global parameters
+        self.d = params['d']
+        self.theta = params['theta']
+        self.r = params['r']
+        self.beta = 1/(1+self.r)
+
+        # Capital Grid - k
+        self.k = DiscreteState(torch.linspace(params['k_min'], params['k_max'],
+            params['nk']))
+        # State of the World - w
+        self.q = params['q']
+        self.w = MarkovBinomial([params['w0'],params['w1']],
+                self.q, self.q)
+        # Productivity shock
+        self.eps = Uniform(params['min_eps'], params['max_eps'],
+                params['N_eps']) 
+
+        # Investment - Choose next period capital state 
+        self.k1 = DiscreteAction(self.k)
+
+        # Create the DiscreteAgent 
+        super(Single_DQN_Manager, self).__init__(states=[self.w, self.k, self.eps],
+            actions=[self.k1], discount_rate=self.beta)
+
+    def reward(self):
+        # Cash flow
+        w = self.w.meshgrid
+        k = self.k.meshgrid
+        eps = self.eps.meshgrid
+        k1 = self.k1.meshgrid
+        I = k1 - (1-self.d)*k
+        # Need to integrate the cashflows over epsilon
+        # The rewards needs to be independent of epsilon
+        cf = self.cashFlow(k, w, eps, I)
+        #cf_fin = self.integrate_current(cf, self.eps)
+        #return cf_fin
+        return cf
+
+    def cashFlow(self, k, w, eps, I):
+        return w*(k**self.theta) - (I**2)/2 + eps
+
+    def next_states(self, states, actions):
+        # Return the next states for a list N of states and actions
+        # states: shape (N, states dim)
+        # actions: shape (N, actions dim)
+        N = len(states)
+        # Current states
+        wi = states[:,0]
+        ki = states[:,1]
+        epsi = states[:,2]
+        # Action
+        Ii = actions[:,0]
+        # Next state: shape (N, states dim)
+        ns = torch.zeros([N, len(self.states)])
+        # Next productivity shock
+        ## Proba of staying in the same state w
+        d = Bernoulli(self.q)
+        identical_ns = d.sample((N,))
+        ns[:,0] = wi.float()*identical_ns + (1-wi.float())*(1-identical_ns)
+        # Next capital state
+        ns[:,1] = Ii
+        # Next eps (doesn't really matter in fact, but need to input it)
+        Neps = self.states[2].length
+        d = Categorical(torch.ones(Neps)/Neps)
+        ns[:,2] = d.sample((N,))
+        # Return the next states
+        return ns
+
+    def rewards(self, states, actions):
+        w = states[:,0]
+        k = states[:,1]
+        eps = states[:,2]
+        k1 = actions[:,0]
+        I = k1 - (1-self.d)*k
+        cf = self.cashFlow(k, w, eps, I)
+        return cf
+
+
+
+
+
+    def plot_policy(self):
+        # Find the steady state capital stock (without adjustment costs)
+        kss=((self.r+self.d)/self.theta)**(1/(self.theta-1))
+        # Find the index of the capital steady state
+        kss_idx = torch.argmin(torch.abs(self.states[0].values - kss))
+        # Plot the policy function at the steady state
+        # as a function of the shock state z
+        pi_ss = self.pi[kss_idx]
+        #z = torch.log(self.states[1])
+        data = pd.DataFrame()
+        data['w'] = self.states[1]
+        data['I'] = pi_ss / kss
+        sns.lineplot('w', 'I', data=data)
+
+    def plot_simulation(self, sim):
+        # Simulate
+        sim_states = sim[0]
+        sim_actions = sim[1]
+
+        data = pd.DataFrame()
+        data['w'] = sim_states[0]
+        data['K'] = sim_states[1]
+        data['eps'] = sim_states[2]
+        data['K1'] = sim_actions[0]
+        data['I'] = data['K1'] - data['K'] * (1-self.d)
+        data['time'] = data.index
+        #sns.set_palette("Blues_d", 4)
+        sns.lineplot(x='time', y='value', hue='variable', style='variable',
+                data=data[['time','K','w','eps','I']].melt('time'))
 
 
 class Single_Manager(DiscreteAgent):
@@ -148,7 +324,7 @@ class Single_Manager(DiscreteAgent):
         return cf_fin
 
     def cashFlow(self, k, w, eps, I):
-        return w*(k**self.theta) - (I**2)/2 + eps
+        return w*(k**self.theta) - (I**2)/4 + eps
 
     def plot_policy(self):
         # Find the steady state capital stock (without adjustment costs)
