@@ -23,6 +23,7 @@ import seaborn as sns
 #mpl.rcParams['figure.dpi'] = 300
 #import matplotlib.pyplot as plt
 
+
 def demo_params():
     # Global parameters
     params = {}
@@ -31,17 +32,17 @@ def demo_params():
     params['r'] = 0.04      # Interest rate (discount rate inferred)
 
     # Capital Grid - k
-    params['k_min'] = 10 
+    params['k_min'] = 10
     params['k_max'] = 250
     params['nk'] = 150       # Number of capital states
     # State of the World - w    (Productivity, Binomial process)
     params['q'] = .95        # Probability of staying in the same state
     params['w0'] = 1        # Low productivity state
     params['w1'] = 6        # High productivity state
-    #params['w0'] = 3        # Low productivity state
-    #params['w1'] = 3        # High productivity state
+    # params['w0'] = 3        # Low productivity state
+    # params['w1'] = 3        # High productivity state
     # Productivity shock - eps
-    ## Uniformly distributed between min_eps and max_eps
+    # Uniformly distributed between min_eps and max_eps
     #params['min_eps'] = -10
     #params['max_eps'] = 10
     params['min_eps'] = 0
@@ -66,21 +67,20 @@ def demo_single_manager():
     # Solve the value function
     man.iterate_value_function(1)
     # Plot the results
-    ## Simulate a path starting at init_state
-    init_state = [1,50,4]
+    # Simulate a path starting at init_state
+    init_state = [1, 50, 4]
     N = 200
-    
+
     sim = man.simulate(N, init_state)
-    
+
     #import ipdb; ipdb.set_trace();
-    
+
     man.plot_simulation(sim)
 
 def demo_single_DQN_manager():
 
-    init_state = [1,20,4]
+    init_state = [1, 20, 4]
     N = 500
-
 
     params = demo_params()
     # Create the agent
@@ -88,8 +88,8 @@ def demo_single_DQN_manager():
 
     # Training and simulation
 
-    #man.train_Q_grid_sarsa()
-    #man.train_Q_grid_qlearning()
+    # man.train_Q_grid_sarsa()
+    # man.train_Q_grid_qlearning()
     man.train_agent()
     man.update_reward()
     man.update_next_states()
@@ -98,21 +98,16 @@ def demo_single_DQN_manager():
     sim_Q = man.simulate(N, init_state, Q_pi_indices)
     man.plot_simulation(sim_Q)
 
-
     # Solve the value function
     # Plot the results
-    ## Simulate a path starting at init_state
+    # Simulate a path starting at init_state
 
     # Training and simulation with DP
     man.iterate_value_function(1)
     sim = man.simulate(N, init_state, man.pi_indices)
     man.plot_simulation(sim)
-    
 
-
-    
     #import ipdb; ipdb.set_trace();
-    
 
 
 def demo_manager():
@@ -123,14 +118,14 @@ def demo_manager():
     # Solve the value function
     man.iterate_value_function(1)
     # Plot the results
-    ## Simulate a path starting at init_state
-    init_state = [1,20,4]
+    # Simulate a path starting at init_state
+    init_state = [1, 20, 4]
     N = 100
-    
+
     sim = man.simulate(N, init_state)
-    
+
     #import ipdb; ipdb.set_trace();
-    
+
     man.plot_simulation(sim)
 
 
@@ -153,30 +148,30 @@ class Single_DQN_Manager(DiscreteDQNAgent):
     """
 
     def __init__(self, params):
-        
+
         # Global parameters
         self.d = params['d']
         self.theta = params['theta']
         self.r = params['r']
-        self.beta = 1/(1+self.r)
+        self.beta = 1 / (1 + self.r)
 
         # Capital Grid - k
         self.k = DiscreteState(torch.linspace(params['k_min'], params['k_max'],
-            params['nk']))
+                                              params['nk']))
         # State of the World - w
         self.q = params['q']
-        self.w = MarkovBinomial([params['w0'],params['w1']],
-                self.q, self.q)
+        self.w = MarkovBinomial([params['w0'], params['w1']],
+                                self.q, self.q)
         # Productivity shock
         self.eps = Uniform(params['min_eps'], params['max_eps'],
-                params['N_eps']) 
+                           params['N_eps'])
 
-        # Investment - Choose next period capital state 
+        # Investment - Choose next period capital state
         self.k1 = DiscreteAction(self.k)
 
-        # Create the DiscreteAgent 
+        # Create the DiscreteAgent
         super(Single_DQN_Manager, self).__init__(states=[self.w, self.k, self.eps],
-            actions=[self.k1], discount_rate=self.beta)
+                                                 actions=[self.k1], discount_rate=self.beta)
 
     def reward(self):
         # Cash flow
@@ -184,16 +179,16 @@ class Single_DQN_Manager(DiscreteDQNAgent):
         k = self.k.meshgrid
         eps = self.eps.meshgrid
         k1 = self.k1.meshgrid
-        I = k1 - (1-self.d)*k
+        I = k1 - (1 - self.d) * k
         # Need to integrate the cashflows over epsilon
         # The rewards needs to be independent of epsilon
         cf = self.cashFlow(k, w, eps, I)
         #cf_fin = self.integrate_current(cf, self.eps)
-        #return cf_fin
+        # return cf_fin
         return cf
 
     def cashFlow(self, k, w, eps, I):
-        return w*(k**self.theta) - (I**2)/2 + eps
+        return w * (k**self.theta) - (I**2) / 2 + eps
 
     def next_states(self, states, actions):
         # Return the next states for a list N of states and actions
@@ -201,43 +196,40 @@ class Single_DQN_Manager(DiscreteDQNAgent):
         # actions: shape (N, actions dim)
         N = len(states)
         # Current states
-        wi = states[:,0]
-        ki = states[:,1]
-        epsi = states[:,2]
+        wi = states[:, 0]
+        ki = states[:, 1]
+        epsi = states[:, 2]
         # Action
-        Ii = actions[:,0]
+        Ii = actions[:, 0]
         # Next state: shape (N, states dim)
         ns = torch.zeros([N, len(self.states)])
         # Next productivity shock
-        ## Proba of staying in the same state w
+        # Proba of staying in the same state w
         d = Bernoulli(self.q)
         identical_ns = d.sample((N,))
-        ns[:,0] = wi.float()*identical_ns + (1-wi.float())*(1-identical_ns)
+        ns[:, 0] = wi.float() * identical_ns + \
+            (1 - wi.float()) * (1 - identical_ns)
         # Next capital state
-        ns[:,1] = Ii
+        ns[:, 1] = Ii
         # Next eps (doesn't really matter in fact, but need to input it)
         Neps = self.states[2].length
-        d = Categorical(torch.ones(Neps)/Neps)
-        ns[:,2] = d.sample((N,))
+        d = Categorical(torch.ones(Neps) / Neps)
+        ns[:, 2] = d.sample((N,))
         # Return the next states
         return ns
 
     def rewards(self, states, actions):
-        w = states[:,0]
-        k = states[:,1]
-        eps = states[:,2]
-        k1 = actions[:,0]
-        I = k1 - (1-self.d)*k
+        w = states[:, 0]
+        k = states[:, 1]
+        eps = states[:, 2]
+        k1 = actions[:, 0]
+        I = k1 - (1 - self.d) * k
         cf = self.cashFlow(k, w, eps, I)
         return cf
 
-
-
-
-
     def plot_policy(self):
         # Find the steady state capital stock (without adjustment costs)
-        kss=((self.r+self.d)/self.theta)**(1/(self.theta-1))
+        kss = ((self.r + self.d) / self.theta)**(1 / (self.theta - 1))
         # Find the index of the capital steady state
         kss_idx = torch.argmin(torch.abs(self.states[0].values - kss))
         # Plot the policy function at the steady state
@@ -259,11 +251,11 @@ class Single_DQN_Manager(DiscreteDQNAgent):
         data['K'] = sim_states[1]
         data['eps'] = sim_states[2]
         data['K1'] = sim_actions[0]
-        data['I'] = data['K1'] - data['K'] * (1-self.d)
+        data['I'] = data['K1'] - data['K'] * (1 - self.d)
         data['time'] = data.index
         #sns.set_palette("Blues_d", 4)
         sns.lineplot(x='time', y='value', hue='variable', style='variable',
-                data=data[['time','K','w','eps','I']].melt('time'))
+                     data=data[['time', 'K', 'w', 'eps', 'I']].melt('time'))
 
 
 class Single_Manager(DiscreteAgent):
@@ -285,30 +277,30 @@ class Single_Manager(DiscreteAgent):
     """
 
     def __init__(self, params):
-        
+
         # Global parameters
         self.d = params['d']
         self.theta = params['theta']
         self.r = params['r']
-        self.beta = 1/(1+self.r)
+        self.beta = 1 / (1 + self.r)
 
         # Capital Grid - k
         self.k = DiscreteState(torch.linspace(params['k_min'], params['k_max'],
-            params['nk']))
+                                              params['nk']))
         # State of the World - w
         self.q = params['q']
-        self.w = MarkovBinomial([params['w0'],params['w1']],
-                self.q, self.q)
+        self.w = MarkovBinomial([params['w0'], params['w1']],
+                                self.q, self.q)
         # Productivity shock
         self.eps = Uniform(params['min_eps'], params['max_eps'],
-                params['N_eps']) 
+                           params['N_eps'])
 
-        # Investment - Choose next period capital state 
+        # Investment - Choose next period capital state
         self.k1 = DiscreteAction(self.k)
 
-        # Create the DiscreteAgent 
+        # Create the DiscreteAgent
         super(Single_Manager, self).__init__(states=[self.w, self.k, self.eps],
-            actions=[self.k1], discount_rate=self.beta)
+                                             actions=[self.k1], discount_rate=self.beta)
 
     def reward(self):
         # Cash flow
@@ -316,7 +308,7 @@ class Single_Manager(DiscreteAgent):
         k = self.k.meshgrid
         eps = self.eps.meshgrid
         k1 = self.k1.meshgrid
-        I = k1 - (1-self.d)*k
+        I = k1 - (1 - self.d) * k
         # Need to integrate the cashflows over epsilon
         # The rewards needs to be independent of epsilon
         cf = self.cashFlow(k, w, eps, I)
@@ -324,11 +316,11 @@ class Single_Manager(DiscreteAgent):
         return cf_fin
 
     def cashFlow(self, k, w, eps, I):
-        return w*(k**self.theta) - (I**2)/4 + eps
+        return w * (k**self.theta) - (I**2) / 4 + eps
 
     def plot_policy(self):
         # Find the steady state capital stock (without adjustment costs)
-        kss=((self.r+self.d)/self.theta)**(1/(self.theta-1))
+        kss = ((self.r + self.d) / self.theta)**(1 / (self.theta - 1))
         # Find the index of the capital steady state
         kss_idx = torch.argmin(torch.abs(self.states[0].values - kss))
         # Plot the policy function at the steady state
@@ -350,11 +342,11 @@ class Single_Manager(DiscreteAgent):
         data['K'] = sim_states[1]
         data['eps'] = sim_states[2]
         data['K1'] = sim_actions[0]
-        data['I'] = data['K1'] - data['K'] * (1-self.d)
+        data['I'] = data['K1'] - data['K'] * (1 - self.d)
         data['time'] = data.index
         #sns.set_palette("Blues_d", 4)
         sns.lineplot(x='time', y='value', hue='variable', style='variable',
-                data=data[['time','K','w','eps','I']].melt('time'))
+                     data=data[['time', 'K', 'w', 'eps', 'I']].melt('time'))
 
 
 class Manager(DiscreteAgent):
@@ -376,38 +368,40 @@ class Manager(DiscreteAgent):
     """
 
     def __init__(self, params):
-        
+
         # Global parameters
         self.d = params['d']
         self.theta = params['theta']
         self.r = params['r']
-        self.beta = 1/(1+self.r)
+        self.beta = 1 / (1 + self.r)
 
         # Capital Grid - k
         self.k = DiscreteState(torch.linspace(params['k_min'], params['k_max'],
-            params['nk']))
+                                              params['nk']))
         # State of the World - w
         self.q = params['q']
-        self.w = MarkovBinomial([params['w0'],params['w1']],
-                self.q, self.q)
+        self.w = MarkovBinomial([params['w0'], params['w1']],
+                                self.q, self.q)
         # Fraction kept by the manager - x
         self.x = Uniform(params['min_x'], params['max_x'],
-                params['N_x']) 
+                         params['N_x'])
         # Productivity shock
         self.eps = Uniform(params['min_eps'], params['max_eps'],
-                params['N_eps']) 
+                           params['N_eps'])
 
         # Market belief about the state of nature w
-        self.gw = Belief(self.w , params['ngw'])
+        self.gw = Belief(self.w, params['ngw'])
 
-        # Investment - Choose next period capital state 
+        # Investment - Choose next period capital state
         self.k1 = DiscreteAction(self.k)
 
-        # Create the DiscreteAgent 
+        # Create the DiscreteAgent
         super(Manager, self).__init__(states=[self.w, self.k, self.x,
-            self.gw, self.eps],
-            actions=[self.k1], discount_rate=self.beta)
+                                              self.gw, self.eps],
+                                      actions=[self.k1], discount_rate=self.beta)
 
+        # TODO
+        # create different types of investors: perfect/imperfect
         # Create the Investor agent
         self.investor = Investor(self)
 
@@ -422,7 +416,7 @@ class Manager(DiscreteAgent):
         k = self.k.meshgrid
         eps = self.eps.meshgrid
         k1 = self.k1.meshgrid
-        I = k1 - (1-self.d)*k
+        I = k1 - (1 - self.d) * k
         # Need to integrate the cashflows over epsilon
         # The rewards needs to be independent of epsilon
         cf = self.cashFlow(k, w, eps, I)
@@ -430,19 +424,19 @@ class Manager(DiscreteAgent):
         return cf_fin
 
     def cashFlow(self, k, w, eps, I):
-        return w*(k**self.theta) - (I**2)/2 + eps
+        return w * (k**self.theta) - (I**2) / 2 + eps
 
     def update_continuation_value(self):
         # Overwrites the standard continuation value
         # For now just reproduce it
         s_int = [self.w, self.x, self.eps, self.gw]
-        cont = self.integrate_next(self.next_states_values,s_int)
+        cont = self.integrate_next(self.next_states_values, s_int)
         # Remove the non-stochastic states
         self.continuation_value = cont.squeeze()
 
     def plot_policy(self):
         # Find the steady state capital stock (without adjustment costs)
-        kss=((self.r+self.d)/self.theta)**(1/(self.theta-1))
+        kss = ((self.r + self.d) / self.theta)**(1 / (self.theta - 1))
         # Find the index of the capital steady state
         kss_idx = torch.argmin(torch.abs(self.states[0].values - kss))
         # Plot the policy function at the steady state
@@ -465,19 +459,19 @@ class Manager(DiscreteAgent):
         data['eps'] = sim_states[2]
         #data['gw'] = sim_states[3]
         data['K1'] = sim_actions[0]
-        data['I'] = data['K1'] - data['K'] * (1-self.d)
+        data['I'] = data['K1'] - data['K'] * (1 - self.d)
         data['time'] = data.index
         sns.lineplot(x='time', y='value', hue='variable', style='variable',
-                data=data[['time','K','w','eps','I']].melt('time'))
+                     data=data[['time', 'K', 'w', 'eps', 'I']].melt('time'))
 
 
 class Investor(DiscreteAgent):
     r"""
     Implements the Investors for the posterior beliefs problem.
-    
+
     Note, the investor does not choose any action.
     """
-    
+
     def __init__(self, manager):
         # link both objects
         self.manager = manager
@@ -495,8 +489,30 @@ class Investor(DiscreteAgent):
         # Create the Investor
         # Note that the manager has no action and one more state
         super(Investor, self).__init__(states=[self.w, self.k, self.x,
-            self.gw, self.eps, self.k1],
-            actions=[], discount_rate=manager.discount_rate)
+                                            self.eps, self.k1],
+                                       actions=[], discount_rate=manager.discount_rate)
+        
+        # alternative constructor
+    def __init__(self, manager, isPerfect):
+        # different state space for
+        # link both objects
+        self.manager = manager
+        # Use the same state space for the manager and the investor
+        self.w = manager.w.clone()
+        self.k = manager.k.clone()
+        self.x = manager.x.clone()
+        self.gw = manager.gw.clone()
+        self.eps = manager.eps.clone()
+        self.k1 = manager.k.clone()
+        # Determine next states for k and k1
+        self.k.get_next_states = self.k._get_next_states_deterministic
+        self.k1.get_next_states = self.next_investment_state
+
+        # Create the Investor
+        # Note that the manager has no action and one more state
+        super(Investor, self).__init__(states=[self.w, self.k, self.x,
+                                               self.gw, self.eps, self.k1],
+                                       actions=[], discount_rate=manager.discount_rate)
 
     def reward(self):
         # Cash flow
@@ -504,7 +520,7 @@ class Investor(DiscreteAgent):
         k = self.k.meshgrid
         eps = self.eps.meshgrid
         k1 = self.k1.meshgrid
-        I = k1 - (1-self.manager.d)*k
+        I = k1 - (1 - self.manager.d) * k
         # Need to integrate the cashflows over epsilon
         cf = self.manager.cashFlow(k, w, eps, I)
         #cf_int = cf.sum(4)
@@ -512,12 +528,17 @@ class Investor(DiscreteAgent):
 
     def next_investment_state(self):
         # Compute the next investment state
-        ## Use the optimal policy of the manager
+        # Use the optimal policy of the manager
         # Need to correct the shape to include k1 in the state space
-        self.k1.ns = self.manager.pi.unsqueeze(-1).expand(self.manager.states_actions_shape)
-        self.k1.ns_indices = self.manager.pi_indices.unsqueeze(-1).expand(self.manager.states_actions_shape)
+        self.k1.ns = self.manager.pi.unsqueeze(
+            -1).expand(self.manager.states_actions_shape)
+        self.k1.ns_indices = self.manager.pi_indices.unsqueeze(
+            -1).expand(self.manager.states_actions_shape)
         self.k1.ns_indices = self.k1.ns_indices.type(torch.float32)
-        self.k1.ns_transition = torch.ones(self.k1.ns.shape) # Deterministic
+        self.k1.ns_transition = torch.ones(self.k1.ns.shape)  # Deterministic
+
+    def update_beliefs(self):
+        pass
 
     def update_beliefs_OLD(self):
         pass
@@ -580,7 +601,7 @@ class Beliefs(nn.Module):
     #        self.perceptron = nn.Linear(2, 1)
     #        # Define the activation function
     #        self.sigmoid = nn.Sigmoid()
-    #        
+    #
     #    def forward(self, x):
     #        x = self.perceptron(x)
     #        x = self.sigmoid(x)
@@ -613,9 +634,3 @@ class Beliefs(nn.Module):
     #    def labels_test(self):
     #        d = [[0],[0],[1],[1]]
     #        return Variable(torch.FloatTensor(d), requires_grad=True)
-    
-
-
-
-
-
