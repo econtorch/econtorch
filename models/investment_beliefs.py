@@ -502,25 +502,26 @@ class Investor(DiscreteAgent):
             actions=[], discount_rate=manager.discount_rate)
 
     # alternative constructor
-    def __init__(self, manager):
-    # link both objects
-    self.manager = manager
-    # Use the same state space for the manager and the investor
-    self.w = manager.w.clone()
-    self.k = manager.k.clone()
-    self.x = manager.x.clone()
-    self.gw = manager.gw.clone()
-    self.eps = manager.eps.clone()
-    self.k1 = manager.k.clone()
-    # Determine next states for k and k1
-    self.k.get_next_states = self.k._get_next_states_deterministic
-    self.k1.get_next_states = self.next_investment_state
+    def __init__(self, manager, isPerfect):
+        
+        # link both objects
+        self.manager = manager
+        # Use the same state space for the manager and the investor
+        self.w = manager.w.clone()
+        self.k = manager.k.clone()
+        self.x = manager.x.clone()
+        self.gw = manager.gw.clone()
+        self.eps = manager.eps.clone()
+        self.k1 = manager.k.clone()
+        # Determine next states for k and k1
+        self.k.get_next_states = self.k._get_next_states_deterministic
+        self.k1.get_next_states = self.next_investment_state
 
-    # Create the Investor
-    # Note that the manager has no action and one more state
-    super(Investor, self).__init__(states=[self.w, self.k, self.x,
-        self.gw, self.eps, self.k1],
-        actions=[], discount_rate=manager.discount_rate)
+        # Create the Investor
+        # Note that the manager has no action and one more state
+        super(Investor, self).__init__(states=[self.w, self.k, self.x,
+            self.gw, self.eps, self.k1],
+            actions=[], discount_rate=manager.discount_rate)
 
     def reward(self):
         # Cash flow
