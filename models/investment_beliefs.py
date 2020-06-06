@@ -82,7 +82,10 @@ def demo_manager_with_environment():
 
     # Create the environment
     env = Environment(params)
-    man = Manager(env,params)
+
+    # observable states for this manager
+    obs_states = [env.w, env.k, env.x, env.gw, env.eps]
+    man = Manager(env,params, obs_states)
 
 def demo_single_DQN_manager():
 
@@ -444,14 +447,30 @@ class Manager(DiscreteAgent):
         # rho.beliefs = self.investor.beliefs
         # rho.get_next_states = self.next_beliefs
 
-    def __init__(self, env, params):
-        self.env = env
-
+    def __init__(self, env, params, obs_states):
         # Global parameters
         self.d = params['d']
         self.theta = params['theta']
         self.r = params['r']
         self.beta = 1/(1+self.r)
+
+            # Capital Grid - k
+        self.k = env.k
+        # State of the World - w
+        self.q = env.q
+        self.w = env.w
+        # Fraction kept by the manager - x
+        self.x = env.x
+        # Productivity shock
+        self.eps = env.eps
+
+        # Market belief about the state of nature w
+        self.gw = env.gw
+
+        # Investment - Choose next period capital state 
+        self.k1 = DiscreteAction(self.k)
+        super(Manager, self).__init__(states=obs_states,
+        actions=[self.k1], discount_rate=self.beta)
 
 
         # TODO
