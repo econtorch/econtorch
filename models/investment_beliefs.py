@@ -76,6 +76,14 @@ def demo_single_manager():
     
     man.plot_simulation(sim)
 
+# demo for Manager and Environment class
+def demo_manager_with_environment():
+    params = demo_params()
+
+    # Create the environment
+    env = Environment(params)
+    man = Manager(env,params)
+
 def demo_single_DQN_manager():
 
     init_state = [1,20,4]
@@ -133,6 +141,25 @@ def demo_manager():
     
     man.plot_simulation(sim)
 
+# Environment class contains all states for all agents
+class Environment():
+    def __init__(self, params):
+            # Capital Grid - k
+        self.k = DiscreteState(torch.linspace(params['k_min'], params['k_max'],
+            params['nk']))
+        # State of the World - w
+        self.q = params['q']
+        self.w = MarkovBinomial([params['w0'],params['w1']],
+                self.q, self.q)
+        # Fraction kept by the manager - x
+        self.x = Uniform(params['min_x'], params['max_x'],
+                params['N_x']) 
+        # Productivity shock
+        self.eps = Uniform(params['min_eps'], params['max_eps'],
+                params['N_eps']) 
+
+        # Market belief about the state of nature w
+        self.gw = Belief(self.w , params['ngw'])
 
 class Single_DQN_Manager(DiscreteDQNAgent):
     r""" Implements the Manager for the posterior beliefs problem.
@@ -375,49 +402,62 @@ class Manager(DiscreteAgent):
 
     """
 
-    def __init__(self, params):
+    # def __init__(self, params):
         
+    #     # Global parameters
+    #     self.d = params['d']
+    #     self.theta = params['theta']
+    #     self.r = params['r']
+    #     self.beta = 1/(1+self.r)
+
+    #     # Capital Grid - k
+    #     self.k = DiscreteState(torch.linspace(params['k_min'], params['k_max'],
+    #         params['nk']))
+    #     # State of the World - w
+    #     self.q = params['q']
+    #     self.w = MarkovBinomial([params['w0'],params['w1']],
+    #             self.q, self.q)
+    #     # Fraction kept by the manager - x
+    #     self.x = Uniform(params['min_x'], params['max_x'],
+    #             params['N_x']) 
+    #     # Productivity shock
+    #     self.eps = Uniform(params['min_eps'], params['max_eps'],
+    #             params['N_eps']) 
+
+    #     # Market belief about the state of nature w
+    #     self.gw = Belief(self.w , params['ngw'])
+
+    #     # Investment - Choose next period capital state 
+    #     self.k1 = DiscreteAction(self.k)
+
+    #     # Create the DiscreteAgent 
+    #     super(Manager, self).__init__(states=[self.w, self.k, self.x,
+    #         self.gw, self.eps],
+    #         actions=[self.k1], discount_rate=self.beta)
+
+
+    #     # Create the Investor agent         
+    #     self.investor = Investor(self)
+
+        # # Add the beliefs function to the rho state of the manager:
+        # # Needed to compute the next state beliefs
+        # rho.beliefs = self.investor.beliefs
+        # rho.get_next_states = self.next_beliefs
+
+    def __init__(self, env, params):
+        self.env = env
+
         # Global parameters
         self.d = params['d']
         self.theta = params['theta']
         self.r = params['r']
         self.beta = 1/(1+self.r)
 
-        # Capital Grid - k
-        self.k = DiscreteState(torch.linspace(params['k_min'], params['k_max'],
-            params['nk']))
-        # State of the World - w
-        self.q = params['q']
-        self.w = MarkovBinomial([params['w0'],params['w1']],
-                self.q, self.q)
-        # Fraction kept by the manager - x
-        self.x = Uniform(params['min_x'], params['max_x'],
-                params['N_x']) 
-        # Productivity shock
-        self.eps = Uniform(params['min_eps'], params['max_eps'],
-                params['N_eps']) 
-
-        # Market belief about the state of nature w
-        self.gw = Belief(self.w , params['ngw'])
-
-        # Investment - Choose next period capital state 
-        self.k1 = DiscreteAction(self.k)
-
-        # Create the DiscreteAgent 
-        super(Manager, self).__init__(states=[self.w, self.k, self.x,
-            self.gw, self.eps],
-            actions=[self.k1], discount_rate=self.beta)
-
 
         # TODO
         # create different types of investors: perfect/imperfect
         # Create the Investor agent         
         self.investor = Investor(self)
-
-        # # Add the beliefs function to the rho state of the manager:
-        # # Needed to compute the next state beliefs
-        # rho.beliefs = self.investor.beliefs
-        # rho.get_next_states = self.next_beliefs
 
     def reward(self):
         # Cash flow
@@ -498,29 +538,29 @@ class Investor(DiscreteAgent):
         # Create the Investor
         # Note that the manager has no action and one more state
         super(Investor, self).__init__(states=[self.w, self.k, self.x,
-            self.eps, self.k1],
-            actions=[], discount_rate=manager.discount_rate)
-
-    # alternative constructor
-    def __init__(self, manager, notPerfect):
-        
-        # link both objects
-        self.manager = manager
-        # Use the same state space for the manager and the investor
-        self.w = manager.w.clone()
-        self.k = manager.k.clone()
-        self.x = manager.x.clone()
-        self.gw = manager.gw.clone()
-        self.eps = manager.eps.clone()
-        self.k1 = manager.k.clone()
-        # Determine next states for k and k1
-        self.k.get_next_states = self.k._get_next_states_deterministic
-        self.k1.get_next_states = self.next_investment_state
-
-        # Create the investor with imperfect information
-        super(Investor, self).__init__(states=[self.w, self.k, self.x,
             self.gw, self.eps, self.k1],
             actions=[], discount_rate=manager.discount_rate)
+
+    # # alternative constructor
+    # def __init__(self, manager, notPerfect):
+        
+    #     # link both objects
+    #     self.manager = manager
+    #     # Use the same state space for the manager and the investor
+    #     self.w = manager.w.clone()
+    #     self.k = manager.k.clone()
+    #     self.x = manager.x.clone()
+    #     self.gw = manager.gw.clone()
+    #     self.eps = manager.eps.clone()
+    #     self.k1 = manager.k.clone()
+    #     # Determine next states for k and k1
+    #     self.k.get_next_states = self.k._get_next_states_deterministic
+    #     self.k1.get_next_states = self.next_investment_state
+
+    #     # Create the investor with imperfect information
+    #     super(Investor, self).__init__(states=[self.w, self.k, self.x,
+    #         self.gw, self.eps, self.k1],
+    #         actions=[], discount_rate=manager.discount_rate)
 
     def reward(self):
         # Cash flow
