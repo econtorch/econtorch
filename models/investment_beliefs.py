@@ -85,7 +85,22 @@ def demo_manager_with_environment():
 
     # observable states for this manager
     obs_states = [env.w, env.k, env.x, env.gw, env.eps]
+    #obs_states = [env.w, env.x, env.eps, env.gw]
+    #obs_states = [env.w, env.k, env.eps, env.gw]
+    #obs_states = [env.w, env.k, env.eps]
+
+    print("herez")
     man = Manager(env,params, obs_states)
+    print("herea")
+    man.iterate_value_function(1)
+    print("hereb")
+
+    init_state = [1, 50, 4]
+    N = 200
+
+    sim = man.simulate(N, init_state)
+    man.plot_simulation(sim)
+
 
 def demo_single_DQN_manager():
 

@@ -216,8 +216,9 @@ class DiscreteAgent():
                 stoch_sh += list(s.ns.shape[len(sa_sh):])
 
 
+        print("before expand")
         ## Expand the states and transitions as needed
-        for i in range(0,len(stoch_sh)):
+        for i in range(0,len(stoch_sh)): 
             if stoch_sh[i]==1:
                 for s in self.states:
                     s.ns = torch.unsqueeze(s.ns, sa_dim+i)
@@ -238,14 +239,19 @@ class DiscreteAgent():
 
         # Multiply the transitions matrices to obtain the joint distribution
         self.joint_transition = torch.ones(self.ns_shape)
+
+        print("after expand")
         for s in self.states:
+            print("i" + str(s))
             self.joint_transition = self.joint_transition * s.ns_transition
 
         # Compute the one dimensional indices
         n_idx = int(np.prod(self.ns_shape))
         self.oneD_indices = 0
         mul = 1
+        print("before dim")
         for i in range(len(self.states)-1,-1,-1):
+            print("i" + str(i))
             s = self.states[i]
             s.ns_indices = s.ns_indices.reshape(n_idx)
             #Idx = Idx + (s.ns_indices * mul).float()
@@ -254,6 +260,7 @@ class DiscreteAgent():
             s.ns_indices = s.ns_indices.reshape(self.ns_shape)
         self.oneD_indices = self.oneD_indices.long()
 
+        print("before constraints")
         # Compute the constraints (values that are inside the grid)
         self.ingrid = torch.ones(self.ns_shape)
         for s in self.states:
@@ -353,8 +360,11 @@ class DiscreteAgent():
 
     def iterate_value_function(self, criterion):
         # Update next_states and rewards
+        print("reward start")
         self.update_reward()
+        print("next states start")
         self.update_next_states()
+        print("before while")
         V_old = self.V
         V_diff = V_old - self.V + criterion
         V_diff[torch.isnan(V_diff)] = 0.
