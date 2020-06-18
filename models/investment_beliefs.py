@@ -13,6 +13,7 @@ from econtorch.agents.discrete_agent import *
 from econtorch.agents.discrete_dqn_agent import *
 from econtorch.processes.discrete_random_processes import Uniform
 from econtorch.processes.discrete_random_processes import MarkovBinomial
+from econtorch.environment import DiscreteEnvironment
 
 # May remove it later
 from econtorch.processes.discrete_random_processes import Belief
@@ -81,7 +82,7 @@ def demo_manager_with_environment():
     params = demo_params()
 
     # Create the environment
-    env = Environment(params)
+    env = DiscreteEnvironment(params)
 
     # observable states for this manager
     obs_states = [env.w, env.k, env.x, env.gw, env.eps]
@@ -159,25 +160,7 @@ def demo_manager():
     
     man.plot_simulation(sim)
 
-# Environment class contains all states for all agents
-class Environment():
-    def __init__(self, params):
-            # Capital Grid - k
-        self.k = DiscreteState(torch.linspace(params['k_min'], params['k_max'],
-            params['nk']))
-        # State of the World - w
-        self.q = params['q']
-        self.w = MarkovBinomial([params['w0'],params['w1']],
-                self.q, self.q)
-        # Fraction kept by the manager - x
-        self.x = Uniform(params['min_x'], params['max_x'],
-                params['N_x']) 
-        # Productivity shock
-        self.eps = Uniform(params['min_eps'], params['max_eps'],
-                params['N_eps']) 
 
-        # Market belief about the state of nature w
-        self.gw = Belief(self.w , params['ngw'])
 
 class Single_DQN_Manager(DiscreteDQNAgent):
     r""" Implements the Manager for the posterior beliefs problem.
