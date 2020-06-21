@@ -62,8 +62,29 @@ def demo_params():
 
 def demo_single_manager():
     params = demo_params()
+    # Capital Grid - k
+    k = DiscreteState(torch.linspace(params['k_min'], params['k_max'],
+        params['nk']))
+    # Productivity shock
+    eps = Uniform(params['min_eps'], params['max_eps'],
+            params['N_eps']) 
+
+    # State of the World - w
+    q = params['q']
+    w = MarkovBinomial([params['w0'],params['w1']],
+            q, q)
+    # Fraction kept by the manager - x
+    x = Uniform(params['min_x'], params['max_x'],
+            params['N_x']) 
+
+    # Market belief about the state of nature w
+    gw = Belief(w , params['ngw'])
+
+    # Create the environment
+    env = DiscreteEnvironment(states=[w,k,eps,gw,x])
+    params = demo_params()
     # Create the agent
-    man = Single_Manager(params)
+    man = Single_Manager(params,env)
     # Solve the value function
     man.iterate_value_function(1)
     # Plot the results
@@ -329,7 +350,7 @@ class Single_Manager(DiscreteAgent):
 
     """
 
-    def __init__(self, params):
+    def __init__(self, params, env):
         
         # Global parameters
         self.d = params['d']
@@ -352,8 +373,8 @@ class Single_Manager(DiscreteAgent):
         self.k1 = DiscreteAction(self.k)
 
         # # Create the DiscreteAgent 
-        # super(Single_Manager, self).__init__(states=[self.w, self.k, self.eps],
-        #     actions=[self.k1], discount_rate=self.beta)
+        super(Single_Manager, self).__init__(obs_states=[self.w, self.k, self.eps], environment=env,
+            actions=[self.k1], discount_rate=self.beta)
 
     def reward(self):
         # Cash flow
