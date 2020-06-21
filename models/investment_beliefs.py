@@ -34,7 +34,7 @@ def demo_params():
     # Capital Grid - k
     params['k_min'] = 10 
     params['k_max'] = 250
-    params['nk'] = 150       # Number of capital states
+    params['nk'] = 50       # Number of capital states
     # State of the World - w    (Productivity, Binomial process)
     params['q'] = .95        # Probability of staying in the same state
     params['w0'] = 1        # Low productivity state
@@ -80,18 +80,35 @@ def demo_single_manager():
 # demo for Manager and Environment class
 def demo_manager_with_environment():
     params = demo_params()
+    # Capital Grid - k
+    k = DiscreteState(torch.linspace(params['k_min'], params['k_max'],
+        params['nk']))
+    # Productivity shock
+    eps = Uniform(params['min_eps'], params['max_eps'],
+            params['N_eps']) 
 
+    # State of the World - w
+    q = params['q']
+    w = MarkovBinomial([params['w0'],params['w1']],
+            q, q)
+    # Fraction kept by the manager - x
+    x = Uniform(params['min_x'], params['max_x'],
+            params['N_x']) 
+
+    # Market belief about the state of nature w
+    gw = Belief(w , params['ngw'])
+
+    import ipdb; ipdb.set_trace()
     # Create the environment
-    env = DiscreteEnvironment(params)
+    env = DiscreteEnvironment(states=[w,k,eps,gw,x])
 
+    print("environment states" + str(env.states))
     # observable states for this manager
-    obs_states = [env.w, env.k, env.x, env.gw, env.eps]
-    #obs_states = [env.w, env.x, env.eps, env.gw]
-    #obs_states = [env.w, env.k, env.eps, env.gw]
-    #obs_states = [env.w, env.k, env.eps]
-
+    #obs_states = [env.w, env.k, env.x, env.gw, env.eps]
+    obs_states = [w,k,gw]
+   
     print("herez")
-    man = Manager(env,params, obs_states)
+    man = Manager(env, params, obs_states)
     print("herea")
     man.iterate_value_function(1)
     print("hereb")
@@ -334,9 +351,9 @@ class Single_Manager(DiscreteAgent):
         # Investment - Choose next period capital state 
         self.k1 = DiscreteAction(self.k)
 
-        # Create the DiscreteAgent 
-        super(Single_Manager, self).__init__(states=[self.w, self.k, self.eps],
-            actions=[self.k1], discount_rate=self.beta)
+        # # Create the DiscreteAgent 
+        # super(Single_Manager, self).__init__(states=[self.w, self.k, self.eps],
+        #     actions=[self.k1], discount_rate=self.beta)
 
     def reward(self):
         # Cash flow
@@ -452,50 +469,54 @@ class Manager(DiscreteAgent):
         self.r = params['r']
         self.beta = 1/(1+self.r)
 
-            # Capital Grid - k
-        self.k = env.k
+
+        # Capital Grid - k
+        self.k = env.states[1]
         # State of the World - w
-        self.q = env.q
-        self.w = env.w
-        # Fraction kept by the manager - x
-        self.x = env.x
-        # Productivity shock
-        self.eps = env.eps
+        self.w = env.states[0]
+    
+        # # Productivity shock
+        # self.eps = env.states[2]
 
         # Market belief about the state of nature w
-        self.gw = env.gw
+        self.gw = env.states[3]
+        self.obs_states = obs_states
+        self.environment = env
 
         # Investment - Choose next period capital state 
         self.k1 = DiscreteAction(self.k)
-        super(Manager, self).__init__(states=obs_states,
+        super(Manager, self).__init__(obs_states=obs_states, environment=env,
         actions=[self.k1], discount_rate=self.beta)
 
 
         # TODO
         # create different types of investors: perfect/imperfect
         # Create the Investor agent         
-        self.investor = Investor(self)
+        #self.investor = Investor(self)
 
     def reward(self):
         # Cash flow
         w = self.w.meshgrid
         k = self.k.meshgrid
-        eps = self.eps.meshgrid
+        # eps = self.eps.meshgrid
         k1 = self.k1.meshgrid
         I = k1 - (1-self.d)*k
         # Need to integrate the cashflows over epsilon
         # The rewards needs to be independent of epsilon
-        cf = self.cashFlow(k, w, eps, I)
-        cf_fin = self.integrate_current(cf, self.eps)
-        return cf_fin
+        cf = self.cashFlow(k, w, I)
+        # cf_fin = self.integrate_current(cf, self.eps)
+        return cf
 
-    def cashFlow(self, k, w, eps, I):
-        return w*(k**self.theta) - (I**2)/2 + eps
+    # def cashFlow(self, k, w, eps, I):
+    #     return w*(k**self.theta) - (I**2)/2 + eps
+    
+    def cashFlow(self, k, w, I):
+        return w*(k**self.theta) - (I**2)/2
 
     def update_continuation_value(self):
         # Overwrites the standard continuation value
         # For now just reproduce it
-        s_int = [self.w, self.x, self.eps, self.gw]
+        s_int = self.obs_states
         cont = self.integrate_next(self.next_states_values,s_int)
         # Remove the non-stochastic states
         self.continuation_value = cont.squeeze()
@@ -546,7 +567,7 @@ class Investor(DiscreteAgent):
         self.k = manager.k.clone()
         self.x = manager.x.clone()
         self.gw = manager.gw.clone()
-        self.eps = manager.eps.clone()
+        # self.eps = manager.eps.clone()
         self.k1 = manager.k.clone()
         # Determine next states for k and k1
         self.k.get_next_states = self.k._get_next_states_deterministic
@@ -554,9 +575,9 @@ class Investor(DiscreteAgent):
 
         # Create the Investor
         # Note that the manager has no action and one more state
-        super(Investor, self).__init__(states=[self.w, self.k, self.x,
-            self.gw, self.eps, self.k1],
-            actions=[], discount_rate=manager.discount_rate)
+        # super(Investor, self).__init__(states=[self.w, self.k, self.x,
+        #     self.gw, self.eps, self.k1],
+        #     actions=[], discount_rate=manager.discount_rate)
 
     # # alternative constructor
     # def __init__(self, manager, notPerfect):
@@ -583,7 +604,7 @@ class Investor(DiscreteAgent):
         # Cash flow
         w = self.w.meshgrid
         k = self.k.meshgrid
-        eps = self.eps.meshgrid
+        # eps = self.eps.meshgrid
         k1 = self.k1.meshgrid
         I = k1 - (1-self.manager.d)*k
         # Need to integrate the cashflows over epsilon

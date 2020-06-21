@@ -22,7 +22,7 @@ class DiscreteAgent():
         actions_shape   Shape of the state space (torch.Size)
     """
     
-    def __init__(self, states=[], actions=[],
+    def __init__(self, obs_states, environment, actions=[], 
             discount_rate=None):
         # Create the states and actions space
         self.states = []
@@ -31,7 +31,7 @@ class DiscreteAgent():
         self.actions = []
         self.actions_values = []
         self.actions_shape = torch.Size() 
-        self.add_states(states)
+        self.add_states(obs_states)
         self.add_actions(actions)
         # Discount Rate 
         self.set_discount_rate(discount_rate)
@@ -43,16 +43,14 @@ class DiscreteAgent():
         self.Q = torch.zeros(self.states_actions_shape)
         self.pi = torch.zeros(self.states_shape)
         self.pi_indices = torch.zeros(self.states_shape)
+        self.environment = environment
 
 ########## Functions to manipulate the object ##########
 
     def add_state(self, s):
         if not(isinstance(s, DiscreteState)):
             s = DiscreteState(s)
-        if s.agent is not None: # Clone the state if already assigned
-            s = s.clone()
         s.dim = len(self.states)
-        s.agent = self
         self.states += [s]
         self.states_values += [s.values]
         self.states_shape += s.size
@@ -107,7 +105,11 @@ class DiscreteAgent():
         perm = np.arange(0,last_dim+1,1)
         perm[last_dim] = state.dim
         perm[state.dim] = last_dim
+        import ipdb; ipdb.set_trace()
         tensor = tensor.permute(list(perm))
+
+        # TODO dimensions
+        state.transitions.unsqueeze(-1)
         proba = state.transitions.expand(tensor.shape)
         tensor = tensor.permute(list(perm))
         proba = proba.permute(list(perm))
