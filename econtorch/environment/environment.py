@@ -25,6 +25,7 @@ class DiscreteState():
         Return the next state when an action is linked to the state
         """
         self.ns = self.meshgrid
+        self.ns_transition = torch.ones(self.ns.shape) # Deterministic
         self.ns_indices = self.ns.clone() 
         self.ns_indices[:] = torch.arange(0,len(self.values)).type(torch.int32)
 
