@@ -22,7 +22,7 @@ class DiscreteAgent():
         actions_shape   Shape of the state space (torch.Size)
     """
     
-    def __init__(self, obs_states, environment, actions=[], 
+    def __init__(self, obs_states_indices, environment, actions=[], 
             discount_rate=None):
         # Create the states and actions space
         self.states = []
@@ -31,7 +31,7 @@ class DiscreteAgent():
         self.actions = []
         self.actions_values = []
         self.actions_shape = torch.Size() 
-        self.add_states(obs_states)
+        self.add_states(obs_states_indices)
         self.add_actions(actions)
         # Discount Rate 
         self.set_discount_rate(discount_rate)
@@ -58,8 +58,8 @@ class DiscreteAgent():
         #self.update_meshgrids()
 
     def add_states(self, s_array):
-        for s in s_array:
-            self.add_state(s)
+        for i in s_array:
+            self.add_state(self.environment.states[i])
 
     def add_action(self, a):
         if not(isinstance(a, DiscreteAction)):

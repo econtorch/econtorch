@@ -107,7 +107,6 @@ def demo_manager_with_environment():
     # Productivity shock
     eps = Uniform(params['min_eps'], params['max_eps'],
             params['N_eps']) 
-
     # State of the World - w
     q = params['q']
     w = MarkovBinomial([params['w0'],params['w1']],
@@ -124,15 +123,11 @@ def demo_manager_with_environment():
     env = DiscreteEnvironment(states=[w,k,eps,gw,x])
 
     print("environment states" + str(env.states))
-    # observable states for this manager
     #obs_states = [env.w, env.k, env.x, env.gw, env.eps]
-    obs_states = [w,k,gw]
-   
-    print("herez")
-    man = Manager(env, params, obs_states)
-    print("herea")
+    # observable states indices for this manager w,k,gw
+    obs_states_indices = [0,1,3]
+    man = Manager(env, params, obs_states_indices)
     man.iterate_value_function(1)
-    print("hereb")
 
     init_state = [1, 50, 4]
     N = 200
@@ -483,30 +478,22 @@ class Manager(DiscreteAgent):
         # rho.beliefs = self.investor.beliefs
         # rho.get_next_states = self.next_beliefs
 
-    def __init__(self, env, params, obs_states):
+    def __init__(self, env, params, obs_states_indices):
         # Global parameters
         self.d = params['d']
         self.theta = params['theta']
         self.r = params['r']
         self.beta = 1/(1+self.r)
 
-
-        # Capital Grid - k
-        self.k = env.states[1]
-        # State of the World - w
-        self.w = env.states[0]
-    
-        # # Productivity shock
-        # self.eps = env.states[2]
-
-        # Market belief about the state of nature w
-        self.gw = env.states[3]
-        self.obs_states = obs_states
+        #self.obs_states = obs_states
         self.environment = env
 
+        self.w = env.states[0]
+        self.k = env.states[1]
+  
         # Investment - Choose next period capital state 
         self.k1 = DiscreteAction(self.k)
-        super(Manager, self).__init__(obs_states=obs_states, environment=env,
+        super(Manager, self).__init__(obs_states_indices=obs_states_indices, environment=env,
         actions=[self.k1], discount_rate=self.beta)
 
 
@@ -537,7 +524,7 @@ class Manager(DiscreteAgent):
     def update_continuation_value(self):
         # Overwrites the standard continuation value
         # For now just reproduce it
-        s_int = self.obs_states
+        s_int = self.states
         cont = self.integrate_next(self.next_states_values,s_int)
         # Remove the non-stochastic states
         self.continuation_value = cont.squeeze()
