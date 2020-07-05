@@ -118,7 +118,6 @@ def demo_manager_with_environment():
     # Market belief about the state of nature w
     gw = Belief(w , params['ngw'])
 
-    import ipdb; ipdb.set_trace()
     # Create the environment
     env = DiscreteEnvironment(states=[w,k,eps,gw,x])
 
@@ -128,6 +127,7 @@ def demo_manager_with_environment():
     obs_states_indices = [0,1,3]
     man = Manager(env, params, obs_states_indices)
     man.iterate_value_function(1)
+    man.investor.iterate_value_function(1)
 
     init_state = [1, 50, 4]
     N = 200
@@ -490,6 +490,7 @@ class Manager(DiscreteAgent):
 
         self.w = env.states[0]
         self.k = env.states[1]
+        self.gw = env.states[3]
   
         # Investment - Choose next period capital state 
         self.k1 = DiscreteAction(self.k)
@@ -500,10 +501,11 @@ class Manager(DiscreteAgent):
         # TODO
         # create different types of investors: perfect/imperfect
         # Create the Investor agent         
-        #self.investor = Investor(self)
+        self.investor = Investor(self)
 
     def reward(self):
         # Cash flow
+        import ipdb; ipdb.set_trace()
         w = self.w.meshgrid
         k = self.k.meshgrid
         # eps = self.eps.meshgrid
@@ -573,19 +575,31 @@ class Investor(DiscreteAgent):
         # Use the same state space for the manager and the investor
         self.w = manager.w.clone()
         self.k = manager.k.clone()
-        self.x = manager.x.clone()
         self.gw = manager.gw.clone()
         # self.eps = manager.eps.clone()
         self.k1 = manager.k.clone()
         # Determine next states for k and k1
         self.k.get_next_states = self.k._get_next_states_deterministic
-        self.k1.get_next_states = self.next_investment_state
+        self.environment = manager.environment
+
+        index = len(self.environment.states)
+        self.environment.add_states([self.w,self.k,self.gw,self.k1])
+        self.obs_states_indices = [index,index+1,index+2,index+3]
+        # #  add  k as a state to environment
+        # manager.environment.add_state(self.k)
+
+        # self.k1.get_next_states = self.next_investment_state
+        # #  add  k1 as a state to environment
+        # manager.environment.add_state(self.k1)
+        # self.obs_states_indices =  manager.obs_states_indices
+        # add the k1 indices into the observable states indices
+        # self.obs_states_indices.append(k1_index)
+
 
         # Create the Investor
         # Note that the manager has no action and one more state
-        # super(Investor, self).__init__(states=[self.w, self.k, self.x,
-        #     self.gw, self.eps, self.k1],
-        #     actions=[], discount_rate=manager.discount_rate)
+        super(Investor, self).__init__(obs_states_indices=self.obs_states_indices,environment=manager.environment,
+            actions=[], discount_rate=manager.discount_rate)
 
     # # alternative constructor
     # def __init__(self, manager, notPerfect):
@@ -610,13 +624,14 @@ class Investor(DiscreteAgent):
 
     def reward(self):
         # Cash flow
+        import ipdb; ipdb.set_trace()
         w = self.w.meshgrid
         k = self.k.meshgrid
         # eps = self.eps.meshgrid
         k1 = self.k1.meshgrid
         I = k1 - (1-self.manager.d)*k
         # Need to integrate the cashflows over epsilon
-        cf = self.manager.cashFlow(k, w, eps, I)
+        cf = self.manager.cashFlow(k, w, I)
         #cf_int = cf.sum(4)
         return cf
 

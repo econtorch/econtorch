@@ -31,6 +31,7 @@ class DiscreteAgent():
         self.actions = []
         self.actions_values = []
         self.actions_shape = torch.Size() 
+        self.obs_states_indices = obs_states_indices
         self.add_states(obs_states_indices)
         self.add_actions(actions)
         # Discount Rate 
@@ -191,6 +192,7 @@ class DiscreteAgent():
         # Compute the next state and the final shape
         stoch_sh = []
         for s in self.states:
+            import ipdb; ipdb.set_trace()
             s.get_next_states()
             #TODO: Rewrite this part to allow for incomplete objects
             #if (hasattr(s, 'action') 
