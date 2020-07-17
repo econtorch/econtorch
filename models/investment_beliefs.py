@@ -59,7 +59,7 @@ def demo_params():
     # Return the parameters
     return params
 
-
+## need to change Single_Manager constructor to match Discrete Agent
 def demo_single_manager():
     params = demo_params()
     # Capital Grid - k
@@ -121,13 +121,11 @@ def demo_manager_with_environment():
     # Create the environment
     env = DiscreteEnvironment(states=[w,k,eps,gw,x])
 
-    print("environment states" + str(env.states))
     #obs_states = [env.w, env.k, env.x, env.gw, env.eps]
     # observable states indices for this manager w,k,gw
     obs_states_indices = [0,1,3]
     man = Manager(env, params, obs_states_indices)
     man.iterate_value_function(1)
-    man.investor.iterate_value_function(1)
 
     init_state = [1, 50, 4]
     N = 200
@@ -505,7 +503,7 @@ class Manager(DiscreteAgent):
 
     def reward(self):
         # Cash flow
-        import ipdb; ipdb.set_trace()
+        #import ipdb; ipdb.set_trace()
         w = self.w.meshgrid
         k = self.k.meshgrid
         # eps = self.eps.meshgrid
@@ -624,7 +622,7 @@ class Investor(DiscreteAgent):
 
     def reward(self):
         # Cash flow
-        import ipdb; ipdb.set_trace()
+        #import ipdb; ipdb.set_trace()
         w = self.w.meshgrid
         k = self.k.meshgrid
         # eps = self.eps.meshgrid
